@@ -1,0 +1,26 @@
+(env) C:\Users\Hanson\Desktop\Rich_Lazy_FTLE>python compare_linear_vs_sigmoid_RA_vs_rho.py
+[data] paired samples: n=256
+[data] RA range:  min=0.0046, med=0.8495, max=0.9960
+[data] rho range: min=-0.9691, med=-0.0521, max=0.3255
+
+================ FIT COMPARISON ================
+Linear:   y = m*RA + c
+  m=1.030484, c=-0.899854
+  R2=0.8749  adjR2=0.8740  RMSE=0.1253  MAE=0.0954
+  AIC=-1059.44  BIC=-1052.35
+
+Sigmoid: y = a + (b-a)/(1 + exp(-k*(RA-x0)))
+  a=-0.980008, b=1.000000, k=2.691776, x0=0.883258
+  R2=0.8834  adjR2=0.8815  RMSE=0.1210  MAE=0.0916
+  AIC=-1073.37  BIC=-1059.19
+
+K-fold CV (RMSE):
+  Linear  CV_RMSE = 0.1255
+  Sigmoid CV_RMSE = 0.1212
+
+---------------- Decision Hints ----------------
+AIC winner: Sigmoid
+BIC winner: Sigmoid
+CV_RMSE winner: Sigmoid
+
+[saved plot] plots_fit_compare\RA_vs_rho_lambda_linear_vs_sigmoid.png
