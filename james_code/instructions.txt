@@ -1,0 +1,18 @@
+First, install my code here: https://github.com/meeree/kpflow, clone it, cd into the root, and run 'pip install -e .'
+After that, run train.py, then record_stats.py, then interpret_stats.py, in sequences. 
+Note you can interrupt record_stats.py in the middle of running it without worrying, since it saves new data and uses that if it exists next time.
+
+# To clone pre-computed data:
+Install git lfs and pull. Specifically, if the repo is already cloned, go to it and run 
+E.g., on ubuntu:
+sudo apt install git-lfs
+or on linux:
+brew install git-lfs
+
+Then, in the repo:
+git lfs install 
+git lfs pull
+
+
+If you add new big files, before commiting with git, do, for example, 
+git lfs track data/sweep/*
