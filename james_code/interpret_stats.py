@@ -55,6 +55,7 @@ for fl in tqdm(files):
     plot_idx.append(Nidx * 4 + gainidx + 16 * Lidx) # TODO : Make automatic. 
 
 vals = np.array(vals)
+ftles = np.stack(ftles)
 ra, ka = np.array(ra), np.array(ka)
 colors = np.array(colors)
 
@@ -74,33 +75,41 @@ for i, (yax, name_y) in enumerate(zip([ra, ka], ['RA', 'KA'])):
         plt.plot(xax, np.poly1d(coefs)(xax), alpha = .5, linewidth = 3, color = 'black', zorder = 10)
 
 plt.tight_layout()
-plt.show()
 
+plt.figure()
 plt.scatter(ra, ka, c = colors)
 plt.xlabel('Rep. Alignment (RA)')
 plt.ylabel('Kernel\nAlignment (KA)')
-plt.show()
 
-plt.figure(figsize = (3 * 4, 4))
-for idx in range(4):
-    plt.subplot(1,4,1+idx)
-    if idx < 3:
-        imshow_nonuniform(ra, ka, colors[:, idx])
-    else:
-        imshow_nonuniform(ra, ka, colors)
-    plt.title('Colored by ' + ['Depth', 'Width', 'Gain', 'All (RGB)'][idx])
-    if idx == 0:
-        plt.xlabel('Rep. Alignment (RA)')
-        plt.ylabel('Kernel\nAlignment (KA)')
+def plot_onto_grids(xvals, yvals, xname, yname):
+    plt.figure(figsize = (3 * 4, 4))
+    for idx in range(4):
+        plt.subplot(1,4,1+idx)
+        if idx < 3:
+            imshow_nonuniform(xvals, yvals, colors[:, idx], aspect = 'auto')
+        else:
+            imshow_nonuniform(xvals, yvals, colors, aspect = 'auto')
+        plt.title('Colored by ' + ['Depth', 'Width', 'Gain', 'All (RGB)'][idx])
+        if idx == 0:
+            plt.xlabel(xname)
+            plt.ylabel(yname)
 
-plt.tight_layout()
+    plt.tight_layout()
+
+plot_onto_grids(ra, ka, 'Rep. Alignment (RA)', 'Kernel\nAlignment (KA)')
 plt.savefig('ra_ka.pdf')
 plt.show()
 
+# Compare variance of FTLE grids.
+plt.figure(figsize = (2 * 4, 3))
+vars_1 = np.var(ftles, 1) 
+plot_onto_grids(vars_1, ka, 'FTLE Var.', 'Kernel\nAlignment (KA)')
+plot_onto_grids(vars_1, ra, 'FTLE Var.', 'Rap. Alignment (RA)')
+plt.show()
 
+# VIsualize all FTLE grids. Basically unusable unless the grid of hyperparams is sparse.
 plt.figure()
 
-ftles = np.stack(ftles)
 nsamp_x = int(ftles.shape[1]**0.5)
 ftles = ftles.reshape((-1, nsamp_x, nsamp_x))
 
