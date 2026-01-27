@@ -8,19 +8,30 @@ from itertools import product
 from train import GetTask, GetModel
 from kpflow.grad_op import HiddenNTKOperator as NTK
 import sys
-sys.path.append('../')
 from common import set_mpl_defaults, imshow_nonuniform
 
 set_mpl_defaults(15)
 files = glob.glob('data/sweep/model*.pt')
 print('Interpreting the data :).')
 plot_idx = []
+
+# All the data I've generated (combining two sweeps).
+# To visualize a specific sweep, just remove any data that's not in it during the loop below.
+
+# SWEEP 1
 WIDTHS   = [10, 50, 100, 200]
 DEPTHS   = [2, 6, 8, 12]
 GAINS    = [0.8, 0.9, 1.0, 1.1]
+
+# SWEEP 2
 WIDTHS   += (10**np.linspace(1, np.log10(200), 10)).astype(int).tolist() #[10, 50, 100, 200]
 DEPTHS   += np.arange(2, 21).tolist() # [2, 6, 8, 12]
 GAINS    += np.linspace(.3, 3, 10).tolist() # [0.8, 0.9, 1.0, 1.1]
+
+# SWEEP 3
+WIDTHS   += (10**np.linspace(1, np.log10(400), 100)).astype(int).tolist()
+DEPTHS   += np.arange(2, 21).tolist() # [2, 6, 8, 12]
+GAINS    += [1.]
 
 lookup = lambda x, arr: np.abs(np.array(arr)-x).argmin()
 ra, ka = [],[]
