@@ -101,10 +101,17 @@ plt.savefig('ra_ka.pdf')
 plt.show()
 
 # Compare variance of FTLE grids.
-plt.figure(figsize = (2 * 4, 3))
 vars_1 = np.var(ftles, 1) 
 plot_onto_grids(vars_1, ka, 'FTLE Var.', 'Kernel\nAlignment (KA)')
-plot_onto_grids(vars_1, ra, 'FTLE Var.', 'Rap. Alignment (RA)')
+plt.savefig('ftle_vs_ka.png')
+plot_onto_grids(vars_1, ra, 'FTLE Var.', 'Rep. Alignment (RA)')
+plt.savefig('ftle_vs_ra.png')
+
+vars_2 = vars_1 / np.mean(ftles**2, 1) # Normalized variance.
+plot_onto_grids(vars_2, ka, 'Normalized\nFTLE Var.', 'Kernel\nAlignment (KA)')
+plt.savefig('ftle_nm_vs_ka.png')
+plot_onto_grids(vars_2, ra, 'Normalized\nFTLE Var.', 'Rep. Alignment (RA)')
+plt.savefig('ftle_nm_vs_ra.png')
 plt.show()
 
 # VIsualize all FTLE grids. Basically unusable unless the grid of hyperparams is sparse.
