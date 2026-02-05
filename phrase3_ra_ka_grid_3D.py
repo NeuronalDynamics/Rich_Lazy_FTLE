@@ -1,0 +1,189 @@
+# phrase3_ra_ka_grid_3D.py
+"""
+3D visualization helpers for phase3 RA/KA grid results.
+
+Loads the aggregated ra_ka_grid_state.npz written by phase3_ra_ka_grid.py
+and renders 3D surface plots (width vs depth vs metric) for each (gain, lr) slice.
+
+for interactive mode, run:
+```zsh
+python phrase3_ra_ka_grid_3D.py --metric RA --interactive 
+```
+"""
+
+import argparse
+import os
+from typing import Dict
+
+import matplotlib.pyplot as plt
+import numpy as np
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  # activates 3D projection
+from matplotlib import cm
+from matplotlib.ticker import FuncFormatter
+from matplotlib.widgets import Slider
+
+from ra_ka_best_method_accstop import fmt_float
+
+
+def safe_load_npz(path: str) -> Dict[str, np.ndarray]:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Grid state file {path!r} not found. Run phase3_ra_ka_grid.py first.")
+    with np.load(path, allow_pickle=False) as data:
+        return {k: data[k] for k in data.files}
+
+
+def draw_surface(ax, widths, depths, values, metric_name, gain, base_lr, vmin=None, vmax=None):
+    W, D = np.meshgrid(widths, depths)
+    finite_mask = np.isfinite(values)
+    if not np.any(finite_mask):
+        return None
+    Z = np.ma.array(values, mask=~finite_mask)
+
+    ax.cla()
+    formatter = FuncFormatter(lambda value, _: f"{int(value)}")
+    ax.xaxis.set_major_formatter(formatter)
+    ax.yaxis.set_major_formatter(formatter)
+
+    surf = ax.plot_surface(
+        W, D, Z,
+        cmap=cm.inferno,
+        linewidth=0.3,
+        antialiased=True,
+        vmin=vmin,
+        vmax=vmax,
+    )
+    ax.set_xlabel("Width N")
+    ax.set_ylabel("Depth L")
+    ax.set_zlabel(metric_name)
+    ax.set_title(f"{metric_name} surface (g={gain}, lr={base_lr})")
+    ax.view_init(elev=35, azim=35)
+    return surf
+
+
+def plot_surface(widths, depths, values, metric_name, gain, base_lr, out_dir, vmin=None, vmax=None):
+    gstr = fmt_float(float(gain))
+    lrstr = fmt_float(float(base_lr))
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection="3d")
+
+    surf = draw_surface(ax, widths, depths, values, metric_name, gain, base_lr, vmin=vmin, vmax=vmax)
+    if surf is None:
+        plt.close(fig)
+        print(f"[skip] No finite {metric_name} values for g={gain}, lr={base_lr}")
+        return
+
+    fig.colorbar(surf, shrink=0.6, aspect=12, pad=0.1)
+    plt.tight_layout()
+
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, f"surface_{metric_name}_g{gstr}_lr{lrstr}.png")
+    plt.savefig(out_path, dpi=240)
+    plt.close(fig)
+    print(f"[saved] {out_path}")
+
+
+def compute_value_range(tensor: np.ndarray):
+    finite_vals = tensor[np.isfinite(tensor)]
+    if finite_vals.size == 0:
+        return None, None
+    return float(finite_vals.min()), float(finite_vals.max())
+
+
+def interactive_viewer(widths, depths, gains, base_lrs, metric_tensor, metric_name, vmin, vmax):
+    if gains.size == 0 or base_lrs.size == 0:
+        raise ValueError("Gains and base learning rates must be non-empty for interactive mode.")
+
+    fig = plt.figure(figsize=(8, 7))
+    ax = fig.add_subplot(111, projection="3d")
+    plt.subplots_adjust(bottom=0.25)
+
+    slider_ax_gain = fig.add_axes([0.15, 0.12, 0.7, 0.03])
+    slider_ax_lr = fig.add_axes([0.15, 0.07, 0.7, 0.03])
+    gain_slider = Slider(slider_ax_gain, "Gain", float(gains.min()), float(gains.max()), valinit=float(gains[0]))
+    lr_slider = Slider(slider_ax_lr, "LR", float(base_lrs.min()), float(base_lrs.max()), valinit=float(base_lrs[0]))
+    info_text = fig.text(0.15, 0.02, "")
+
+    def snap_index(array, value):
+        return int(np.abs(array - value).argmin())
+
+    updating = False
+
+    def update(_=None):
+        nonlocal updating
+        if updating:
+            return
+        updating = True
+        gi = snap_index(gains, gain_slider.val)
+        li = snap_index(base_lrs, lr_slider.val)
+        gain = gains[gi]
+        lr = base_lrs[li]
+        surf = draw_surface(ax, widths, depths, metric_tensor[gi, li], metric_name, gain, lr, vmin=vmin, vmax=vmax)
+        if surf is None:
+            info_text.set_text(f"g={gain:.3f}, lr={lr:.3f} (no finite values)")
+        else:
+            info_text.set_text(f"g={gain:.3f}, lr={lr:.3f}")
+        if abs(gain_slider.val - gain) > 1e-9:
+            gain_slider.set_val(gain)
+        if abs(lr_slider.val - lr) > 1e-9:
+            lr_slider.set_val(lr)
+        fig.canvas.draw_idle()
+        updating = False
+
+    gain_slider.on_changed(update)
+    lr_slider.on_changed(update)
+    update()
+
+    print("[interactive] Close the window to exit.")
+    plt.show()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Plot 3D surfaces for phase3 RA/KA grid slices.")
+    parser.add_argument("--grid-state", default="ra_ka_grid_state.npz",
+                        help="Path to ra_ka_grid_state.npz generated by phase3_ra_ka_grid.py")
+    parser.add_argument("--metric", default="RA", choices=["RA", "KA"],
+                        help="Metric to visualize. Defaults to RA.")
+    parser.add_argument("--out-dir", default=os.path.join("plots_ra_ka", "3d"),
+                        help="Directory for rendered PNGs (created if missing).")
+    parser.add_argument("--vmin", type=float, default=None,
+                        help="Optional z-axis minimum. Defaults to data min.")
+    parser.add_argument("--vmax", type=float, default=None,
+                        help="Optional z-axis maximum. Defaults to data max.")
+    parser.add_argument("--interactive", action="store_true",
+                        help="Launch an interactive viewer with sliders for g and lr.")
+    args = parser.parse_args()
+
+    grid = safe_load_npz(args.grid_state)
+
+    widths = grid["widths"].astype(int)
+    depths = grid["depths"].astype(int)
+    gains = grid["gains"].astype(float)
+    base_lrs = grid["base_lrs"].astype(float)
+
+    metric_key = f"{args.metric}_map"
+    if metric_key not in grid:
+        raise KeyError(f"{metric_key} missing from {args.grid_state}.")
+    metric_tensor = grid[metric_key]
+    if metric_tensor.ndim != 4:
+        raise ValueError(f"{metric_key} should be 4D [gain, lr, depth, width], got shape {metric_tensor.shape}")
+
+    if args.vmin is None or args.vmax is None:
+        auto_vmin, auto_vmax = compute_value_range(metric_tensor)
+        vmin = args.vmin if args.vmin is not None else auto_vmin
+        vmax = args.vmax if args.vmax is not None else auto_vmax
+    else:
+        vmin, vmax = args.vmin, args.vmax
+
+    if args.interactive:
+        interactive_viewer(widths, depths, gains, base_lrs, metric_tensor, args.metric, vmin, vmax)
+        return
+
+    for gi, gain in enumerate(gains):
+        for li, lr in enumerate(base_lrs):
+            values = metric_tensor[gi, li]
+            plot_surface(widths, depths, values, args.metric, gain, lr, args.out_dir, vmin=vmin, vmax=vmax)
+
+
+if __name__ == "__main__":
+    main()
